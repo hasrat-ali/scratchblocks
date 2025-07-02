@@ -31,9 +31,6 @@ const overrideShapes = [
   "cat",
 ]
 
-// languages that should be displayed right to left
-export const rtlLanguages = ["ar", "ckb", "fa", "he"]
-
 // List of commands taken from Scratch
 import scratchCommands from "./commands.js"
 
@@ -118,78 +115,7 @@ export const unicodeIcons = {
   "@delInput": "◂",
 }
 
-export const allLanguages = {}
-function loadLanguage(code, language) {
-  const blocksByHash = (language.blocksByHash = {})
 
-  Object.keys(language.commands).forEach(blockId => {
-    const nativeSpec = language.commands[blockId]
-    const block = blocksById[blockId]
-
-    const nativeHash = hashSpec(nativeSpec)
-    if (!blocksByHash[nativeHash]) {
-      blocksByHash[nativeHash] = []
-    }
-    blocksByHash[nativeHash].push(block)
-
-    // fallback image replacement, for languages without aliases
-    const m = iconPat.exec(block.spec)
-    if (m) {
-      const image = m[0]
-      const hash = nativeHash.replace(hashSpec(image), unicodeIcons[image])
-      if (!blocksByHash[hash]) {
-        blocksByHash[hash] = []
-      }
-      blocksByHash[hash].push(block)
-    }
-  })
-
-  language.nativeAliases = {}
-  Object.keys(language.aliases).forEach(alias => {
-    const blockId = language.aliases[alias]
-    const block = blocksById[blockId]
-    if (block === undefined) {
-      throw new Error(`Invalid alias '${blockId}'`)
-    }
-    const aliasHash = hashSpec(alias)
-    if (!blocksByHash[aliasHash]) {
-      blocksByHash[aliasHash] = []
-    }
-    blocksByHash[aliasHash].push(block)
-
-    if (!language.nativeAliases[blockId]) {
-      language.nativeAliases[blockId] = []
-    }
-    language.nativeAliases[blockId].push(alias)
-  })
-
-  // Some English blocks were renamed between Scratch 2 and Scratch 3. Wire them
-  // into language.blocksByHash
-  Object.keys(language.renamedBlocks || {}).forEach(alt => {
-    const id = language.renamedBlocks[alt]
-    if (!blocksById[id]) {
-      throw new Error(`Unknown ID: ${id}`)
-    }
-    const block = blocksById[id]
-    const hash = hashSpec(alt)
-    if (!english.blocksByHash[hash]) {
-      english.blocksByHash[hash] = []
-    }
-    english.blocksByHash[hash].push(block)
-  })
-
-  language.nativeDropdowns = {}
-  Object.keys(language.dropdowns).forEach(name => {
-    const nativeName = language.dropdowns[name]
-    language.nativeDropdowns[nativeName] = name
-  })
-
-  language.code = code
-  allLanguages[code] = language
-}
-export function loadLanguages(languages) {
-  Object.keys(languages).forEach(code => loadLanguage(code, languages[code]))
-}
 
 export const english = {
   aliases: {
@@ -253,9 +179,7 @@ export const english = {
 allBlocks.forEach(info => {
   english.commands[info.id] = info.spec
 })
-loadLanguages({
-  en: english,
-})
+
 
 /*****************************************************************************/
 
@@ -292,12 +216,12 @@ disambig("OPERATORS_MATHOP", "SENSING_OF", (children, lang) => {
   return lang.math.includes(name)
 })
 
-disambig("SOUND_CHANGEEFFECTBY", "LOOKS_CHANGEEFFECTBY", (children, lang) => {
+disambig("SOUND_CHANGEEFFECTBY", "LOOKS_CHANGEEFFECTBY", (children) => {
   // Sound if sound effect, otherwise default to graphic effect
   for (const child of children) {
     if (child.shape === "dropdown") {
       const name = child.value
-      for (const effect of lang.soundEffects) {
+      for (const effect of english.soundEffects) {
         if (minifyHash(effect) === minifyHash(name)) {
           return true
         }
@@ -307,12 +231,12 @@ disambig("SOUND_CHANGEEFFECTBY", "LOOKS_CHANGEEFFECTBY", (children, lang) => {
   return false
 })
 
-disambig("SOUND_SETEFFECTO", "LOOKS_SETEFFECTTO", (children, lang) => {
+disambig("SOUND_SETEFFECTO", "LOOKS_SETEFFECTTO", (children) => {
   // Sound if sound effect, otherwise default to graphic effect
   for (const child of children) {
     if (child.shape === "dropdown") {
       const name = child.value
-      for (const effect of lang.soundEffects) {
+      for (const effect of english.soundEffects) {
         if (minifyHash(effect) === minifyHash(name)) {
           return true
         }
@@ -348,12 +272,12 @@ disambig("pen.setColor", "pen.setHue", (children, _lang) => {
   return (last.isInput && last.isColor) || last.isBlock
 })
 
-disambig("microbit.whenGesture", "gdxfor.whenGesture", (children, lang) => {
+disambig("microbit.whenGesture", "gdxfor.whenGesture", (children) => {
   for (const child of children) {
     if (child.shape === "dropdown") {
       const name = child.value
       // Yes, "when shaken" gdxfor block exists. But microbit is more common.
-      for (const effect of lang.microbitWhen) {
+      for (const effect of english.microbitWhen) {
         if (minifyHash(effect) === minifyHash(name)) {
           return true
         }
@@ -383,20 +307,20 @@ disambig("ev3.buttonPressed", "microbit.isButtonPressed", (children, _lang) => {
   return false
 })
 
-specialCase("CONTROL_STOP", (_, children, lang) => {
+specialCase("CONTROL_STOP", (_, children) => {
   // Cap block unless argument is "other scripts in sprite"
   const last = children[children.length - 1]
   if (!last.isInput) {
     return
   }
   const value = last.value
-  if (lang.osis.includes(value)) {
+  if (english.osis.includes(value)) {
     return { ...blocksById.CONTROL_STOP, shape: "stack" }
   }
 })
 
-export function lookupHash(hash, info, children, languages) {
-  for (const lang of languages) {
+export function lookupHash(hash, info, children) {
+  const lang = english
     if (Object.prototype.hasOwnProperty.call(lang.blocksByHash, hash)) {
       const collisions = lang.blocksByHash[hash]
       for (let block of collisions) {
@@ -413,25 +337,23 @@ export function lookupHash(hash, info, children, languages) {
         if (collisions.length > 1) {
           // Only check in case of collision;
           // perform "disambiguation"
-          if (block.accepts && !block.accepts(info, children, lang)) {
+          if (block.accepts && !block.accepts(info, children)) {
             continue
           }
         }
         if (block.specialCase) {
-          block = block.specialCase(info, children, lang) || block
+          block = block.specialCase(info, children) || block
         }
-        return { type: block, lang: lang }
+        return { type: block, lang: english }
       }
     }
-  }
 }
 
-export function lookupDropdown(name, languages) {
-  for (const lang of languages) {
+export function lookupDropdown(name) {
+  const lang = english
     if (Object.prototype.hasOwnProperty.call(lang.nativeDropdowns, name)) {
       return lang.nativeDropdowns[name]
     }
-  }
 }
 
 export function applyOverrides(info, overrides) {
