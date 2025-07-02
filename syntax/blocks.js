@@ -115,8 +115,6 @@ export const unicodeIcons = {
   "@delInput": "◂",
 }
 
-
-
 export const english = {
   aliases: {
     "turn ccw %1 degrees": "MOTION_TURNLEFT",
@@ -180,7 +178,6 @@ allBlocks.forEach(info => {
   english.commands[info.id] = info.spec
 })
 
-
 /*****************************************************************************/
 
 function registerCheck(id, func) {
@@ -216,7 +213,7 @@ disambig("OPERATORS_MATHOP", "SENSING_OF", (children, lang) => {
   return lang.math.includes(name)
 })
 
-disambig("SOUND_CHANGEEFFECTBY", "LOOKS_CHANGEEFFECTBY", (children) => {
+disambig("SOUND_CHANGEEFFECTBY", "LOOKS_CHANGEEFFECTBY", children => {
   // Sound if sound effect, otherwise default to graphic effect
   for (const child of children) {
     if (child.shape === "dropdown") {
@@ -231,7 +228,7 @@ disambig("SOUND_CHANGEEFFECTBY", "LOOKS_CHANGEEFFECTBY", (children) => {
   return false
 })
 
-disambig("SOUND_SETEFFECTO", "LOOKS_SETEFFECTTO", (children) => {
+disambig("SOUND_SETEFFECTO", "LOOKS_SETEFFECTTO", children => {
   // Sound if sound effect, otherwise default to graphic effect
   for (const child of children) {
     if (child.shape === "dropdown") {
@@ -272,7 +269,7 @@ disambig("pen.setColor", "pen.setHue", (children, _lang) => {
   return (last.isInput && last.isColor) || last.isBlock
 })
 
-disambig("microbit.whenGesture", "gdxfor.whenGesture", (children) => {
+disambig("microbit.whenGesture", "gdxfor.whenGesture", children => {
   for (const child of children) {
     if (child.shape === "dropdown") {
       const name = child.value
@@ -321,39 +318,39 @@ specialCase("CONTROL_STOP", (_, children) => {
 
 export function lookupHash(hash, info, children) {
   const lang = english
-    if (Object.prototype.hasOwnProperty.call(lang.blocksByHash, hash)) {
-      const collisions = lang.blocksByHash[hash]
-      for (let block of collisions) {
-        if (
-          info.shape === "reporter" &&
-          block.shape !== "reporter" &&
-          block.shape !== "ring"
-        ) {
-          continue
-        }
-        if (info.shape === "boolean" && block.shape !== "boolean") {
-          continue
-        }
-        if (collisions.length > 1) {
-          // Only check in case of collision;
-          // perform "disambiguation"
-          if (block.accepts && !block.accepts(info, children)) {
-            continue
-          }
-        }
-        if (block.specialCase) {
-          block = block.specialCase(info, children) || block
-        }
-        return { type: block, lang: english }
+  if (Object.prototype.hasOwnProperty.call(lang.blocksByHash, hash)) {
+    const collisions = lang.blocksByHash[hash]
+    for (let block of collisions) {
+      if (
+        info.shape === "reporter" &&
+        block.shape !== "reporter" &&
+        block.shape !== "ring"
+      ) {
+        continue
       }
+      if (info.shape === "boolean" && block.shape !== "boolean") {
+        continue
+      }
+      if (collisions.length > 1) {
+        // Only check in case of collision;
+        // perform "disambiguation"
+        if (block.accepts && !block.accepts(info, children)) {
+          continue
+        }
+      }
+      if (block.specialCase) {
+        block = block.specialCase(info, children) || block
+      }
+      return { type: block, lang: english }
     }
+  }
 }
 
 export function lookupDropdown(name) {
   const lang = english
-    if (Object.prototype.hasOwnProperty.call(lang.nativeDropdowns, name)) {
-      return lang.nativeDropdowns[name]
-    }
+  if (Object.prototype.hasOwnProperty.call(lang.nativeDropdowns, name)) {
+    return lang.nativeDropdowns[name]
+  }
 }
 
 export function applyOverrides(info, overrides) {
